@@ -1,0 +1,258 @@
+<div class="q-pa-md">
+    <div class="q-mb-md">
+        <div class="text-h6">SKUs</div>
+        <div class="text-subtitle">Items: {{totalItemCount}}</div>
+    </div>
+    <q-btn class="q-mb-sm" padding="5px 20px" color="dark" label="Add" icon-right="add" @@click="redirectToAddSku"></q-btn>
+    <q-separator inset vertical></q-separator>
+    <q-table 
+        :rows="skus" 
+        :columns="columns"
+    >
+        <template v-slot:body-cell-actions="props">
+            <q-td>
+                <q-btn class="q-ma-sm" color="primary" @@click="activateEditSku(props.row)" label="edit"></q-btn>
+                <q-btn class="q-ma-sm" color="negative" @@click="activateDeleteConfirmationDialog(props.row)" label="del"></q-btn>
+            </q-td>
+        </template>
+    </q-table>
+</div>
+
+
+@* Edit Dialog *@
+<q-dialog v-model="editDialog" persistent>
+    <q-card style="width: 400px;" class="q-pa-md">
+        <q-card-section>
+            <q-input 
+                v-model="editingSku.product.productName" 
+                type="text" 
+                label="Product Name" 
+                lazy-rules
+                :rules="[ val => val && val.length > 0 || 'Please type something']">
+            </q-input>
+            <q-input 
+                v-model="editingSku.price" 
+                type="text" 
+                label="Product Price" 
+                lazy-rules
+                :rules="[ val => val && val.length > 0 || 'Please type something']">
+            </q-input>
+            <q-input 
+                v-model="editingSku.quantityInStock" 
+                type="text" 
+                label="Quantity In Stocks" 
+                lazy-rules
+                :rules="[ val => val && val.length > 0 || 'Please type something']">
+            </q-input>
+            <q-input 
+                v-model="editingSku.product.productCost" 
+                type="text" 
+                label="Product Cost" 
+                lazy-rules
+                :rules="[ val => val && val.length > 0 || 'Please type something']">
+            </q-input>
+            <q-select class="q-mb-lg" v-model="editingSku.product.productCategory" label="Product Category" :options="productCategories" option-value="productCategoryId" option-label="categoryName"></q-select>
+        </q-card-section>
+        <q-card-actions align="right">
+            <q-btn class="q-mr-sm" color="standard" text-color="black" label="Cancel" @@click="editDialog=false"></q-btn>
+            <q-btn color="dark" label="Save" @@click="saveEditSku"></q-btn>
+        </q-card-actions>
+    </q-card>
+</q-dialog>
+
+@* Delete Confirmation Dialog *@
+<q-dialog v-model="deleteConfirmationDialog">
+    <q-card style="width: 300px;" class="q-pa-md">
+        <q-card-section>
+            <div class="text-h6">Delete {{confirmDeleteSku.skuNumber}}</div>
+            <div class="text-subtitle">Are you sure to delete this?</div>
+        </q-card-section>
+        <q-card-actions align="right">
+            <q-btn padding="5px 15px" color="dark" flat label="Cancel" @@click="deleteConfirmationDialog=false"></q-btn>
+            <q-btn padding="5px 15px" color="negative" label="Delete" @@click="deleteSku"></q-btn>
+        </q-card-actions>
+    </q-card>
+</q-dialog>
+
+
+@section code{
+    <script>
+        var option = {
+            //data
+            data(){
+                return {
+                    skus: [],
+                    columns:[
+                        {
+                            name:  'skunumber',
+                            label: 'SKU Number',
+                            field: 'skuNumber',
+                            sortable: true,
+                            align: 'center'
+                        },
+                        {
+                            name:  'productname',
+                            label: 'Product Name',
+                            field: 'product',
+                            sortable: true,
+                            align: 'center',
+                            format: val => `${val.productName}`
+                        },
+                        {
+                            name:  'color',
+                            label: 'Product Color',
+                            field: 'color',
+                            sortable: true,
+                            align: 'center',
+                            format: val => `${val.colorName}`
+                        },
+                        {
+                            name:  'size',
+                            label: 'Size',
+                            field: 'size',
+                            sortable: true,
+                            align: 'center',
+                            format: val => `${val.sizeName}`
+                        },
+                        {
+                            name:  'productcategory',
+                            label: 'Product Category',
+                            field: 'product',
+                            sortable: true,
+                            align: 'center',
+                            format: val => `${val.productCategory.categoryName}`
+                        },
+                        {
+                            name:  'actions',
+                            label: 'Actions',
+                            field: 'actions',
+                            align: 'center'
+                        }
+                    ],
+                    //the following are variables about product editing
+                    productCategories: []
+                    ,
+                    editingSku: {},
+                    editDialog: false,
+                    //delete dialog
+                    deleteConfirmationDialog: false,
+                    deleteConfirm: false,
+                    //this is for storing the data passed from the dialog function when user clicks on del on table
+                    confirmDeleteSku: {},
+                    //dialog after deletion success
+                    deleteSuccessDialog: false
+                    ,
+                    product: {}
+                };
+            }
+            ,
+            //methods
+            methods:{
+                async getAllSkus() {
+                    //using viewbag to get(bind) data from server side
+                    this.skus = @Html.Raw(Json.Serialize(@ViewBag.skus));
+                    console.log(this.skus);
+                }
+                ,
+                async getEditingProductSelections() {
+                    var url = "/api/getProductSelections";
+                    try {
+                        var res = await axios.get(url);
+                        //assign product categories for editing
+                        this.productCategories = res.data.categories;
+                        //set editing Sku for displaying default value
+                        this.editingSku.product.productCategory = this.productCategories.length > 0 ? this.productCategories[0] : null;
+                    }
+                    catch(error) {
+                        console.log(error);
+                    }
+                }
+                ,
+                redirectToAddSku() {
+                    //redirect to the following path
+                    window.location = "/sku/add";
+                }
+                ,
+                //Edit Product region
+                activateEditSku(item){
+                    //open editing dialog
+                    this.editDialog = true;
+                    //clone it separately from the selected product to make the product in the table does not respond to changes
+                    this.editingSku = { ...item };
+                    console.log(item);
+                }//ef
+                ,
+                async saveEditSku() {                    
+                    var url = "/api/EditSku";
+                    try {
+                        var res = await axios.post(url, this.editingSku);
+                        console.log(res.data);
+                        //make changes product object in the table as well 
+                        //get index
+                        const index = this.skus.findIndex(p => p.productId === this.editingSku.productId);
+                        //replace the object at the index position
+                        this.skus.splice(index, 1, this.editingSku);
+                        //reset the editingSku object
+                        this.editingSku = {};
+                        //close editDialog
+                        this.editDialog = false;
+                    }
+                    catch(error) {
+                        console.log(error);
+                    }
+                }//ef
+                //end of Edit Product region
+                ,
+                //Delete Product region
+                activateDeleteConfirmationDialog(item) {
+                    //assign the confirm delete variable
+                    this.confirmDeleteSku = item;
+                    //open confirmation dialog
+                    this.deleteConfirmationDialog = true;
+                }//ef
+                ,
+                async deleteSku(){
+                    var url = "/api/deleteSku";
+                    try {
+                        //remove in server side
+                        var res = await axios.post(url, this.confirmDeleteSku);
+                        console.log(res.data);
+                        //remove data from the `skus` list (from table)
+                        this.skus = this.skus.filter(x => x.productId != this.confirmDeleteSku.productId);
+                        //disable delete dialog
+                        this.deleteConfirmationDialog = false;
+                    }
+                    catch(error) {
+                        console.error(error);
+                    }
+                }//ef
+                //end Delete Product Region
+            }///emethod
+            ,
+            //computed
+            computed:{
+                totalItemCount() {
+                    return this.skus.length;
+                }//ef
+            }//ecomputed
+            ,
+            //created
+            //the data is loaded on created() function instead of mounted() because created() is executed before the UI is rendered, therefore, it can load the data before all the UIs are completely loaded to increase data loading speed.
+            async created(){
+                //get all current skus
+                await this.getAllSkus();
+                //get product selections for editing
+                await this.getEditingProductSelections();
+            }//ecreated
+            ,
+            //mounted
+            mounted(){  
+            }
+
+        };
+        
+        const app = Vue.createApp(option);
+        app.use(Quasar);
+        app.mount('#app');
+    </script>
+}

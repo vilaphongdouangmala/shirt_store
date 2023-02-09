@@ -1,0 +1,307 @@
+<div class="q-pa-md">
+    <template v-if="currentPage === 'addItemsPage'">
+        <slot name="addItemsPage">
+            <div class="text-h6 q-mb-sm">Cart</div>
+            <q-list class="q-mb-lg" bordered>
+                <q-item class="text-bold">
+                    <q-item-section>Product Name</q-item-section>
+                    <q-item-section>QTY</q-item-section>
+                    <q-item-section>Price</q-item-section>
+                    <q-item-section>Subtotal</q-item-section>
+                    <q-item-section>Actions</q-item-section>
+                </q-item>
+                <q-item v-for="item in order.orderItems">
+                    <q-item-section>
+                        {{item.sku.product.productName}}
+                    </q-item-section>
+                    <q-item-section>
+                        @* Two-way data binding *@
+                        <q-input style="max-width: 50px;" dense v-model="item.qty"></q-input>
+                    </q-item-section>
+                    <q-item-section>
+                        {{item.sku.price}}
+                    </q-item-section>
+                    <q-item-section>
+                        {{item.sku.price * item.qty}}
+                    </q-item-section>
+                    <q-item-section>
+                        <div class="row">
+                            <q-btn style="max-width: 100px;" icon="add" color="black" @@click="incQty(item)"></q-btn>
+                            <q-btn class="q-mx-sm" style="max-width: 100px;" icon="remove" color="black" @@click="decQty(item)"></q-btn>
+                            <q-btn style="max-width: 100px;" icon="delete" color="red" @@click="removeFromCart(item)"></q-btn>
+                        </div>
+                    </q-item-section>
+                </q-item>
+            </q-list>
+
+            <div class="text-h6 q-mb-sm">List of Products (SKUs)</div>
+            <q-table 
+                class="q-mb-lg"
+                :rows="displaySkus" 
+                :columns="columns"
+            >
+                <template v-slot:body-cell-actions="props">
+                    <q-td>
+                        <q-btn color="black" @@click="addItem(props.row)" label="add"></q-btn>
+                    </q-td>
+                </template>
+            </q-table>
+
+            <q-btn class="q-mr-sm" padding="8px 10px" label="cancel" text-color="black" color="standard" @@click="redirectToMainPage"></q-btn>
+            <q-btn padding="8px 20px" label="next" color="black" @@click="setPage('addCustomerPage')"></q-btn>
+        </slot>
+    </template>
+
+    @* Add Customer *@
+    <template v-if="currentPage === 'addCustomerPage'">
+        <slot name="addCustomerPage">
+            <div class="text-h6 q-mb-md">Customer Information</div>
+            <q-btn class="text-left" flat color="black" icon="add" label="Choose an Existing Customer" @@click="activateExistingCustomerDialog"></q-btn>
+            <div class="q-mb-lg q-gutter-y-md" style="max-width: 400px;">
+                <div class="row q-gutter-md">
+                    <div class="col">
+                        <q-input outlined v-model="customer.firstName" label="First Name"></q-input>
+                    </div>
+                    <div class="col">
+                        <q-input outlined v-model="customer.lastName" label="Last Name"></q-input>
+                    </div>
+                </div>
+                <q-input outlined v-model="customer.email" label="Email"></q-input>
+                <q-input outlined v-model="customer.phone" label="Phone"></q-input>
+            </div>
+            <q-btn class="q-mr-sm" padding="8px 20px" label="back" text-color="black" color="standard" @@click="setPage('addItemsPage')"></q-btn>
+            <q-btn padding="8px 20px" label="submit" color="black" @@click="addOrder"></q-btn>
+            
+            @* Existing Customer Dialog *@
+            <q-dialog v-model="existingCustomerDialog">
+                <q-card class="q-pa-lg">
+                    <q-card-section>
+                        <div class="text-h6">Choose Existing Customer</div>
+                    </q-card-section>
+                    <q-card-section>
+                        <q-select v-model="customer" :options="customers" :option-label="getExistingCustomerLabel" option-value="customer" outlined></q-select>
+                    </q-card-section>
+                    <q-card-actions align='right'>
+                        <q-btn color="black" label="OK" @@click="existingCustomerDialog=false"></q-btn>
+                    </q-card-actions>
+                </q-card>
+            </q-dialog>
+        </slot>
+    </template>
+</div>
+
+
+@section code{
+    <script>
+    var option = {
+        //data
+        data(){
+            return {
+                //addItemsPage data
+                displaySkus: [],
+                columns: [
+                    {
+                        name:  'productname',
+                        label: 'Product Name',
+                        field: 'product',
+                        sortable: true,
+                        align: 'left',
+                        format: val => `${val.productName}`
+                    },
+                    {
+                        name:  'size',
+                        label: 'Size',
+                        field: 'size',
+                        sortable: true,
+                        align: 'left',
+                        format: val => `${val.sizeName}`
+                    },
+                    {
+                        name:  'color',
+                        label: 'Color',
+                        field: 'color',
+                        sortable: true,
+                        align: 'left',
+                        format: val => `${val.colorName}`
+                    },
+                    {
+                        name:  'productcategory',
+                        label: 'Product Category',
+                        field: 'product',
+                        sortable: true,
+                        align: 'left',
+                        format: val => `${val.productCategory.categoryName}`
+                    },
+                    {
+                        name:  'price',
+                        label: 'Price',
+                        field: 'price',
+                        sortable: true,
+                        align: 'left'
+                    },
+                    {
+                        name:  'actions',
+                        label: 'Actions',
+                        field: 'actions',
+                        align: 'left'
+                    }
+                ]
+                ,
+                order: {
+                    //default payment method, no selection functionality yet
+                    paymentMethod: "Cash",
+                    customerId: 0,
+                    //default employee
+                    employeeId: 1,
+                    orderItems: []
+                }
+                ,
+                //default paymentMethods (not using db yet)
+                paymentMethods: ["Cash", "Credit Card", "Bank Transfer"]
+                ,
+                //addCustomerPage data
+                customers: []
+                ,
+                customer: {
+                    firstName: "",
+                    lastName: "",
+                    email: "",
+                    phone: ""
+                }//ef
+                ,
+                existingCustomerDialog: false
+                ,
+                //page handling
+                currentPage: "addItemsPage"
+            };
+        }
+        ,
+        //methods
+        methods:{
+            redirectToMainPage() {
+                window.location = "/order";
+            }
+            ,
+            async getOrderDisplaySkus() {
+                var url = "/api/GetOrderDisplaySkus";
+                try {
+                    var res = await axios.get(url);
+                    //assign data
+                    this.displaySkus = res.data;
+                    console.log(this.displaySkus);  
+                }
+                catch(error) {
+                    console.log(error);
+                }//end try catch
+                console.log(this.skus);
+            }//ef
+            ,
+            addItem(item) {
+                //new orderItem structure
+                var orderItem = {
+                    //default qty  is 1
+                    qty: 1,
+                    sku: item
+                };
+                //add item to the list
+                this.order.orderItems.push(orderItem);
+                //remove item from the display list
+                this.displaySkus = this.displaySkus.filter(x => x.skuId != item.skuId);
+            }//ef
+            ,
+            incQty(item) {
+                item.qty += 1;
+            }//ef
+            ,
+            decQty(item) {
+                item.qty -= 1;
+                if (item.qty == 0) {
+                    //remove item from the cart if qty == 0
+                    this.order.orderItems = this.order.orderItems.filter(x => x.sku.skuId != item.sku.skuId);
+                    //push the item back to the display skus
+                    this.displaySkus.push(item.sku);
+                }//eif
+            }//ef
+            ,
+            removeFromCart(item) {
+                //remove item
+                this.order.orderItems = this.order.orderItems.filter(x => x.sku.skuId != item.sku.skuId);
+                //push the item back to the display skus
+                this.displaySkus.push(item.sku);
+            }//ef
+            ,
+            setPage(page) {
+                //set page by changing current page value
+                this.currentPage = page;
+            }//ef
+            ,
+            async addOrder() {
+                //restructure orderItem
+                var oi = this.order.orderItems.map(x => {
+                    return {
+                        qty: x.qty,
+                        skuId: x.sku.skuId
+                    }
+                });
+                //replace old strcuture
+                this.order.orderItems = oi;
+
+                //if customer does not exist, then append the whole customer object
+                if (this.order.customerId !== 0) {
+                    //delete the customerId property first
+                    delete this.order.customerId;
+                    this.order.customer = this.customer;
+                }
+                else {
+                    //if exists, then we append only the customerId
+                    this.order.customerId = this.customer.customerId;
+                }
+
+                console.log(this.order);
+                var url = "/api/AddOrder";
+                var res = await axios.post(url, this.order);
+                console.log(res.data.msg);
+                //redirect back to main page
+                this.redirectToMainPage();
+            }//ef
+            ,
+            //customers
+            async activateExistingCustomerDialog() {
+                this.existingCustomerDialog = true;
+                //get customers info
+                await this.getAllCustomers();
+            }
+            ,
+            async getAllCustomers() {
+                var url = "/api/GetAllCustomers";
+                var res = await axios.get(url);
+                this.customers = res.data;
+                console.log(this.customers);
+                //set default value
+                this.customer = this.customers.length > 0 ? this.customers[0] : null;
+            }//ef
+            ,
+            //existing customer option label
+            getExistingCustomerLabel(option) {
+                return `${option.firstName} ${option.lastName}`;
+            }//ef
+
+        }//emethods
+        ,
+        //computed
+        computed:{
+            
+        }
+        ,
+        //created
+        //the data is loaded on created() function instead of mounted() because created() is executed before the UI is rendered, therefore, it can load the data before all the UIs are completely loaded to increase data loading speed.
+        async created(){
+            await this.getOrderDisplaySkus();
+        }//ecreated
+    };
+    
+    const app = Vue.createApp(option);
+    app.use(Quasar)
+    app.mount('#app')
+    </script>
+}

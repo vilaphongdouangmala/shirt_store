@@ -1,0 +1,30 @@
+version: "3"
+networks:
+  net6:
+
+services:
+
+  db:
+    networks:
+      - net6
+    image: mariadb:latest
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_TCP_PORT: 3306
+      MYSQL_DATABASE: shirtstore
+      MYSQL_ROOT_PASSWORD: "root"
+    volumes:
+      - ./db:/data/db
+      - ./db/db1.sql:/docker-entrypoint-initdb.d/db.sql
+
+  adminer:
+    networks:
+      - net6
+    image: adminer
+    restart: always
+    ports:
+      - 2001:8080
+    depends_on:
+      - db

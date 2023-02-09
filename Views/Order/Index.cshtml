@@ -1,0 +1,218 @@
+<div class="q-pa-md">
+    <template v-if="currentPage === 'mainOrderPage'">
+        <slot name="mainOrderPage">
+            <div class="text-h6">Orders</div>
+            <div class="text-subtitle q-mb-md">Items: {{totalItemCount}}</div>
+            <q-btn class="q-mb-md" padding="5px 20px" color="dark" label="New Order" icon-right="add" @@click="redirectToAddOrder"></q-btn>
+            <q-list class="q-mb-md" bordered>
+                <q-item class="text-bold">
+                    <q-item-section>Order Date</q-item-section>
+                    <q-item-section>Customer</q-item-section>
+                    <q-item-section>Total</q-item-section>
+                </q-item>
+                <q-item v-for="item in orders" clickable @@click="selectOrder(item)">
+                    <q-item-section>{{formatDate(item.orderDate)}}</q-item-section>
+                    <q-item-section>{{item.customerName}}</q-item-section>
+                    <q-item-section>{{calOrderTotal(item)}}</q-item-section>
+                </q-item>
+            </q-list>
+            <div class="row q-gutter-lg justify-center">
+                <div class="text-subtitle"><span class="text-bold">Average: </span>{{avg}}</div>
+                <div class="text-subtitle"><span class="text-bold">Max: </span>{{max}}</div>
+                <div class="text-subtitle"><span class="text-bold">Min: </span>{{min}}</div>
+            </div>
+        </slot>
+    </template>
+
+    @* Order details *@
+
+    @* This is for query the whole thing *@
+    @* <template v-if="currentPage === 'orderDetailPage'">
+        <slot name="orderDetailPage">
+            <div class="text-h6 q-mb-md">Order Details</div>
+            <div class="q-mb-md">
+                <div class="text-subtitle"><span class="text-bold">Order Date:</span> {{formatDate(selectedOrder.orderDate)}}</div>
+                <div class="text-subtitle"><span class="text-bold">Customer Name:</span> {{selectedOrder.customer.firstName}} {{selectedOrder.customer.lastName}}</div>
+                <div class="text-subtitle"><span class="text-bold">Payment Method:</span> {{selectedOrder.paymentMethod}}</div>
+                <div class="text-subtitle"><span class="text-bold">Salesperson:</span> {{selectedOrder.employee.firstName}} {{selectedOrder.employee.lastName}}</div>
+            </div>
+            <div class="text-subtitle q-mb-sm">Items: {{selectedOrderItemCount}}</div>
+            !!!!Address showing feature should be added, but due to time limitation 
+            <q-list class="q-mb-md" bordered>
+                <q-item>
+                    <q-item-section>Product Name</q-item-section>
+                    <q-item-section>Product Price</q-item-section>
+                    <q-item-section>Quantity</q-item-section>
+                    <q-item-section>Color</q-item-section>
+                    <q-item-section>Size</q-item-section>
+                    <q-item-section>Total</q-item-section>
+                </q-item>
+                <q-item v-for="item in selectedOrder.orderItems">
+                    <q-item-section>{{item.sku.product.productName}}</q-item-section>
+                    <q-item-section>{{item.sku.price}}</q-item-section>
+                    <q-item-section>{{item.qty}}</q-item-section>
+                    <q-item-section>{{item.sku.color.colorName}}</q-item-section>
+                    <q-item-section>{{item.sku.size.sizeName}}</q-item-section>
+                    <q-item-section>{{item.qty * item.sku.price}}</q-item-section>
+                </q-item>
+            </q-list>
+            <div class="text-h6 q-mb-md">Grand Total: {{selectedOrderItemTotal}}</div>
+            <q-btn color="standard" class="text-black" label="Back" @@click="backToMain"></q-btn>
+        </slot>
+    </template> 
+    *@
+
+
+    @* This is for query using the Linq Select structure *@
+    <template v-if="currentPage === 'orderDetailPage'">
+        <slot name="orderDetailPage">
+            <div class="text-h6 q-mb-md">Order Details</div>
+            <div class="q-mb-md">
+                <div class="text-subtitle"><span class="text-bold">Order Date:</span> {{formatDate(selectedOrder.orderDate)}}</div>
+                <div class="text-subtitle"><span class="text-bold">Customer Name:</span> {{selectedOrder.customerName}}</div>
+                <div class="text-subtitle"><span class="text-bold">Payment Method:</span> {{selectedOrder.paymentMethod}}</div>
+                <div class="text-subtitle"><span class="text-bold">Salesperson:</span> {{selectedOrder.employeeName}}</div>
+            </div>
+            <div class="text-subtitle q-mb-sm">Items: {{selectedOrderItemCount}}</div>
+            @* Address showing feature should be added, but due to time limitation *@
+            <q-list class="q-mb-md" bordered>
+                <q-item>
+                    <q-item-section>Product Name</q-item-section>
+                    <q-item-section>Product Price</q-item-section>
+                    <q-item-section>Quantity</q-item-section>
+                    <q-item-section>Color</q-item-section>
+                    <q-item-section>Size</q-item-section>
+                    <q-item-section>Total</q-item-section>
+                </q-item>
+                <q-item v-for="item in selectedOrder.orderItems">
+                    <q-item-section>{{item.productName}}</q-item-section>
+                    <q-item-section>{{item.price}}</q-item-section>
+                    <q-item-section>{{item.qty}}</q-item-section>
+                    <q-item-section>{{item.color}}</q-item-section>
+                    <q-item-section>{{item.size}}</q-item-section>
+                    <q-item-section>{{item.qty * item.price}}</q-item-section>
+                </q-item>
+            </q-list>
+            <div class="text-h6 q-mb-md">Grand Total: {{selectedOrderItemTotal}}</div>
+            <q-btn color="standard" class="text-black" label="Back" @@click="backToMain"></q-btn>
+        </slot>
+    </template>
+
+    
+</div>
+
+
+@section code{
+    <script>
+    var option = {
+        //data
+        data(){
+            return {
+                orders: []
+                ,
+                selectedOrder: {}
+                ,
+                //page handling
+                currentPage: "mainOrderPage"
+                ,
+                //stats
+                avg: 0,
+                max: 0,
+                min: 0,
+            };
+        }
+        ,
+        //methods
+        methods:{
+            async getAllOrders() {
+                var url = "/api/GetAllOrders";
+                var res = await axios.get(url);
+                this.orders = res.data.orders2;
+                //get stats
+                this.avg = res.data.avg;
+                this.max = res.data.max;
+                this.min = res.data.min;
+                console.log(res.data.orders);
+            }//ef
+            ,
+            redirectToAddOrder() {
+                window.location = "/order/add";
+            }//ef
+            ,
+            calOrderTotal(order) {
+                console.log(order);
+                var total = 0;
+                for (var item of order.orderItems) {
+                    total += item.qty * item.price; 
+                }//eloop
+                return total;
+            }//ef
+            ,
+            selectOrder(order) {
+                this.selectedOrder = order;
+                this.setPage("orderDetailPage");
+            }//ef
+            ,
+            backToMain() {
+                this.setPage("mainOrderPage");
+                //clear the selectedOrder
+                this.selectedOrder = {}
+            }//ef
+            ,
+            setPage(page) {
+                this.currentPage = page;
+            }//ef
+            ,
+            async seedData() {
+                var url = "/api/SeedData";
+                var res = await axios.get(url);
+                console.log(res);
+            }//ef
+            ,
+            formatDate(date) {
+                return moment(date).format("DD/MM/yyyy").toString();
+            }//ef
+        }//emethod
+        ,
+        //computed
+        computed:{
+            totalItemCount() {
+                //this computed property returns the total number of orders
+                return this.orders.length;
+            }//ef
+            ,
+            selectedOrderItemCount() {
+                //this returns the total number of items in the order when the user selects an order
+                return this.selectedOrder.orderItems.length;
+            }//ef
+            ,
+            selectedOrderItemTotal() {
+                //this returns grand total of the items in the selected order
+                var total = 0;
+                for (var item of this.selectedOrder.orderItems) {
+                    total += item.qty * item.price;
+                }//ef
+                return total;
+            }//ef
+        }//ecomputed
+        ,
+        //created
+        //the data is loaded on created() function instead of mounted() because created() is executed before the UI is rendered, therefore, it can load the data before all the UIs are completely loaded to increase data loading speed.
+        async created(){
+            //seed data
+            @* await this.seedData(); *@
+            //get all existing orders
+            await this.getAllOrders();
+        }//ecreated
+        ,
+        //mounted
+        mounted(){
+        }//emounted
+    };
+    
+    const app = Vue.createApp(option);
+    app.use(Quasar);
+    app.use(moment);
+    app.mount('#app');
+    </script>
+}

@@ -1,0 +1,239 @@
+<div class="q-pa-md">
+    <div class="q-mb-md">
+        <div class="text-h6">Products</div>
+        <div class="text-subtitle">Items: {{totalItemCount}}</div>
+    </div>
+    <q-btn class="q-mb-sm" padding="5px 20px" color="dark" label="Add" icon-right="add" @@click="redirectToAddProduct"></q-btn>
+    <q-separator inset vertical></q-separator>
+    <q-table 
+        :rows="products" 
+        :columns="columns">
+        <template v-slot:body-cell-actions="props">
+            <q-td>
+                <q-btn class="q-ma-sm" color="primary" @@click="activateEditProduct(props.row)" label="edit"></q-btn>
+                <q-btn class="q-ma-sm" color="negative" @@click="activateDeleteConfirmationDialog(props.row)" label="del"></q-btn>
+            </q-td>
+        </template>
+    </q-table>
+</div>
+
+
+@* Edit Dialog *@
+<q-dialog v-model="editDialog" persistent>
+    <q-card style="width: 400px;" class="q-pa-md">
+        <q-card-section>
+            <q-input 
+                v-model="editingProduct.productName" 
+                type="text" 
+                label="Product Name" 
+                lazy-rules
+                :rules="[ val => val && val.length > 0 || 'Please type something']">
+            </q-input>
+            <q-input 
+                v-model="editingProduct.productCost" 
+                type="text" 
+                label="Product Cost" 
+                lazy-rules
+                :rules="[ val => val && val.length > 0 || 'Please type something']">
+            </q-input>
+            <q-select class="q-mb-lg" v-model="editingProduct.productCategory" label="Product Category" :options="productCategories" option-value="productCategoryId" option-label="categoryName"></q-select>
+        </q-card-section>
+        <q-card-actions align="right">
+            <q-btn class="q-mr-sm" color="standard" text-color="black" label="Cancel" @@click="editDialog=false"></q-btn>
+            <q-btn color="dark" label="Save" @@click="saveEditProduct"></q-btn>
+        </q-card-actions>
+    </q-card>
+</q-dialog>
+
+@* Delete Confirmation Dialog *@
+<q-dialog v-model="deleteConfirmationDialog">
+    <q-card style="width: 300px;" class="q-pa-md">
+        <q-card-section>
+            <div class="text-h6">Delete {{confirmDeleteProduct.productName}}</div>
+            <div class="text-subtitle">Are you sure to delete this?</div>
+        </q-card-section>
+        <q-card-actions align="right">
+            <q-btn padding="5px 15px" color="dark" flat label="Cancel" @@click="deleteConfirmationDialog=false"></q-btn>
+            <q-btn padding="5px 15px" color="negative" label="Delete" @@click="deleteProduct"></q-btn>
+        </q-card-actions>
+    </q-card>
+</q-dialog>
+
+
+@section code{
+    <script>
+        var option = {
+            //data
+            data(){
+                return {
+                    products: [],
+                    columns:[
+                        {
+                            name:  'id',
+                            label: 'Product ID',
+                            field: 'productId',
+                            sortable: true,
+                            align: 'center'
+                        },
+                        {
+                            name:  'productname',
+                            label: 'Product Name',
+                            field: 'productName',
+                            sortable: true,
+                            align: 'center'
+                        },
+                        {
+                            name:  'productCost',
+                            label: 'Product Cost',
+                            field: 'productCost',
+                            sortable: true,
+                            align: 'center'
+                        },
+                        {
+                            name:  'productCategory',
+                            label: 'Product Category',
+                            field: 'productCategory',
+                            format: val => `${val.categoryName}`,
+                            sortable: true,
+                            align: 'center'
+                        },
+                        {
+                            name:  'actions',
+                            label: 'Actions',
+                            field: 'actions',
+                            align: 'center'
+                        }
+                    ],
+                    //the following are variables about product editing
+                    productCategories: []
+                    ,
+                    editingProduct: {
+                        productName: "",
+                        productCost: 0,
+                        productCategory: {}
+                    },
+                    editDialog: false,
+                    //delete dialog
+                    deleteConfirmationDialog: false,
+                    deleteConfirm: false,
+                    //this is for storing the data passed from the dialog function when user clicks on del on table
+                    confirmDeleteProduct: {},
+                    //dialog after deletion success
+                    deleteSuccessDialog: false
+                };
+            }
+            ,
+            //methods
+            methods:{
+                async getAllProducts() {
+                    var url = "/api/getallproducts";
+                    try {
+                        var res = await axios.get(url);
+                        this.products = res.data;
+                        console.log(res.data);
+                    }
+                    catch(error) {
+                        console.log(error);
+                    }
+                }
+                ,
+                async getEditingProductSelections() {
+                    var url = "/api/getProductSelections";
+                    try {
+                        var res = await axios.get(url);
+                        this.productCategories = res.data.categories;
+                        this.editingProduct.productCategory = this.productCategories.length > 0 ? this.productCategories[0] : null;
+                    }
+                    catch(error) {
+                        console.log(error);
+                    }
+                }
+                ,
+                redirectToAddProduct() {
+                    //redirect to the following path
+                    window.location = "/product/add";
+                }
+                ,
+                //Edit Product region
+                activateEditProduct(item){
+                    //open editing dialog
+                    this.editDialog = true;
+                    //clone it separately from the selected product to make the product in the table does not respond to changes
+                    this.editingProduct = { ...item };
+                    console.log(item);
+                }//ef
+                ,
+                async saveEditProduct() {                    
+                    var url = "/api/EditProduct";
+                    try {
+                        var res = await axios.post(url, this.editingProduct);
+                        console.log(res.data);
+                        //make changes product object in the table as well 
+                        //get index
+                        const index = this.products.findIndex(p => p.productId === this.editingProduct.productId);
+                        //replace the object at the index position
+                        this.products.splice(index, 1, this.editingProduct);
+                        //reset the editingProduct object
+                        this.editingProduct = {};
+                        //close editDialog
+                        this.editDialog = false;
+                    }
+                    catch(error) {
+                        console.log(error);
+                    }
+                }//ef
+                //end of Edit Product region
+                ,
+                //Delete Product region
+                activateDeleteConfirmationDialog(item) {
+                    //assign the confirm delete variable
+                    this.confirmDeleteProduct = item;
+                    //open confirmation dialog
+                    this.deleteConfirmationDialog = true;
+                }//ef
+                ,
+                async deleteProduct(){
+                    var url = "/api/deleteProduct";
+                    try {
+                        //remove in server side
+                        var res = await axios.post(url, this.confirmDeleteProduct);
+                        console.log(res.data);
+                        //remove data from the `products` list (from table)
+                        this.products = this.products.filter(x => x.productId != this.confirmDeleteProduct.productId);
+                        //disable dialog
+                        this.deleteConfirmationDialog = false;
+                    }
+                    catch(error) {
+                        console.error(error);
+                    }
+                }//ef
+                //end Delete Product Region
+            }///emethod
+            ,
+            //computed
+            computed:{
+                totalItemCount() {
+                    //this computed property returns the total number of items in products
+                    return this.products.length;
+                }//ef
+            }
+            ,
+            //created
+            //the data is loaded on created() function instead of mounted() because created() is executed before the UI is rendered, therefore, it can load the data before all the UIs are completely loaded to increase data loading speed.
+            async created(){
+                //get all current products
+                await this.getAllProducts();
+                //get product selections for editing
+                await this.getEditingProductSelections();
+            }//ecreated
+            ,
+            //mounted
+            mounted(){  
+            }
+        };
+        
+        const app = Vue.createApp(option);
+        app.use(Quasar);
+        app.mount('#app');
+    </script>
+}

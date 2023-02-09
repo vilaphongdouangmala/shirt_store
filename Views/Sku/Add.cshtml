@@ -1,0 +1,137 @@
+<q-card>
+    <q-card-section>
+        <div class="text-h6">Add a new SKU</div>
+    </q-card-section>
+    <q-card-section>
+        <q-select class="q-mb-lg" v-model="selectedProduct" label="Product" :options="products" option-value="product" option-label="productName"></q-select>
+        <q-input 
+            v-model="addingSku.skuNumber" 
+            type="text" 
+            label="SKU Number" 
+            lazy-rules
+            :rules="[ val => val && val.length > 0 || 'Please type something']">
+        </q-input>
+        <q-input 
+            v-model="addingSku.price" 
+            type="text" 
+            label="Product Price" 
+            lazy-rules
+            :rules="[ val => val && val.length > 0 || 'Please type something']">
+        </q-input>
+        <q-input 
+            v-model="addingSku.quantityInStock" 
+            type="text" 
+            label="Quantity in Stocks" 
+            lazy-rules
+            :rules="[ val => val && val.length > 0 || 'Please type something']">
+        </q-input>
+        <q-select class="q-mb-lg" v-model="selectedSize" label="Size" :options="sizes" option-value="size" option-label="sizeName"></q-select>
+        <q-select class="q-mb-lg" v-model="selectedColor" label="Color" :options="colors" option-value="color" option-label="colorName"></q-select>
+        <q-btn class="q-mr-md" color="standard" text-color="black" label="Back" @@click="redirectToMainPage"></q-btn>
+        <q-btn color="dark" label="Submit" @@click="addSku"></q-btn>
+    </q-card-section>
+</q-card>
+
+
+@section code{
+    <script>
+        var option = {
+            //data
+            data(){
+                return {
+                    addingSku: {
+                        skuNumber: "",
+                        sizeId: 0,
+                        colorId: 0,
+                        quantityInStock: 0,
+                        price: 0,
+                        image: "",
+                        productId: 0
+                    }
+                    ,
+                    //selections
+                    productCategories: []
+                    ,
+                    selectedCategory: {}
+                    ,
+                    sizes: []
+                    ,
+                    selectedSize: {}
+                    ,
+                    colors: []
+                    ,
+                    selectedColor: {}
+                    ,
+                    products: []
+                    ,
+                    selectedProduct: {}
+                };
+            }
+            ,
+            //methods
+            methods:{
+                async addSku() {
+                    console.log(this.addingSku);
+                    //replace selections
+                    this.addingSku.sizeId = this.selectedSize.sizeId;
+                    this.addingSku.colorId = this.selectedColor.colorId;
+                    this.addingSku.productId = this.selectedProduct.productId;
+                    var url = "/api/addSku";
+                    try {
+                        var res = await axios.post(url, this.addingSku);
+                        console.log(res.data.msg);
+                        //redirect back to main after finish adding
+                        this.redirectToMainPage();
+                    }
+                    catch(error) {
+                        console.log(error);
+                    }
+                }
+                ,
+                async getAddingProductSelections() {
+                    var url = "/api/getProductSelections";
+                    try {
+                        var res = await axios.get(url);
+                        //assign for categories for showing in dropdown selection
+                        this.productCategories = res.data.categories;
+                        this.sizes = res.data.sizes;
+                        this.colors = res.data.colors;
+                        this.products = res.data.products;
+                        //set the default value
+                        this.selectedCategory = this.productCategories.length > 0 ? this.productCategories[0] : null;
+                        this.selectedSize = this.sizes.length > 0 ? this.sizes[0] : null;
+                        this.selectedColor = this.colors.length > 0 ? this.colors[0] : null;
+                        this.selectedProduct = this.products.length > 0 ? this.products[0] : null;
+                    }
+                    catch(error) {
+                        console.log(error);
+                    }
+                }//ef
+                ,
+                redirectToMainPage() {
+                    window.location = "/sku/";
+                }
+            }///emethod
+            ,
+            //computed
+            computed:{
+            }
+            ,
+            //created
+            //the data is loaded on created() function instead of mounted() because created() is executed before the UI is rendered, therefore, it can load the data before all the UIs are completely loaded to increase data loading speed.
+            async created(){
+                //get all adding production selection information (sizes, colors, categories)
+                await this.getAddingProductSelections();
+            }//ecreated
+            ,
+            //mounted
+            mounted(){  
+            }
+
+        };
+        
+        const app = Vue.createApp(option);
+        app.use(Quasar);
+        app.mount('#app');
+    </script>
+}
